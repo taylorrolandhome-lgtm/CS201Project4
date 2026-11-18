@@ -10,4 +10,7 @@ For the size of our hospital simulation, a smaller t value was necessary to stor
 Rocket: Developed the patient and doctor header files, as well as the main.cpp. Implemented the hospital simulation logic and helped integrate the files together to make the project cohesive. 
 Lindsay: Developed all of the visual SFML components, made the UML class diagram, as well as the makefile.
 Taylor: Developed the BTree implementation in BTree.h, worked on commenting and structure of the programs, made the patient and doctor datasets, and helped set up the UML class diagram and report. 
+## 4. Project 4 Additions
+Taylor: Implemented a patient search history using a stack in C++. The stack allows the most revently searched patients to appear first. Users can search for patients by their date of birth using the p command, and successful searches are added to the stack. The r command displays the search history and creates a temporary copy of the stack to preserve the original data. This feature allows users to review previous patient searches without affecting the B-Trees. 
+
 
