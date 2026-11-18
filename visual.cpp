@@ -6,21 +6,44 @@
 #include "waitingRoom.h"
 #include "visual.h"
 
+#ifdef __APPLE__
+#include <objc/runtime.h>
+#include <objc/message.h>
+
+// On macOS the program becomes a GUI app the moment an SFML window opens, and it
+// stays the frontmost app even after the window closes. Because the console loop
+// never processes Cocoa events, macOS then shows the spinning wait cursor and
+// keyboard focus never goes back to the terminal. Hiding the app hands focus back
+// to the terminal; unhiding it lets the next visualization window appear normally.
+static void sendToSharedApp(const char* selectorName) {
+    id nsApp = ((id(*)(id, SEL))objc_msgSend)((id)objc_getClass("NSApplication"),
+        sel_registerName("sharedApplication"));
+    if (nsApp) {
+        ((void(*)(id, SEL, id))objc_msgSend)(nsApp, sel_registerName(selectorName), nullptr);
+    }
+}
+#endif
+
 sf::Color getPatientColor(Patient* p) {
     // Use a different color for patients with more serious conditions.
     if (!p) return sf::Color(59, 130, 246);
     if (p->getIsCritical()) {
         return sf::Color(239, 68, 68);
-    } else if (p->getCondition() >= 7) {
+    }
+    else if (p->getCondition() >= 7) {
         return sf::Color(249, 115, 22);
-    } else {
+    }
+    else {
         return sf::Color(59, 130, 246);
     }
 }
 
 void runVisualization(Hospital& hospital) {
+#ifdef __APPLE__
+    sendToSharedApp("unhide:"); // undo the hide from the last time the window closed
+#endif
     // Draw the simulation and handle user input until the window closes.
-    sf::RenderWindow window(sf::VideoMode({1200, 800}), "Hospital Waiting Room Simulation (Visual Mode)");
+    sf::RenderWindow window(sf::VideoMode({ 1200, 800 }), "Hospital Waiting Room Simulation (Visual Mode)");
     window.setFramerateLimit(60);
 
     sf::Font font;
@@ -38,14 +61,16 @@ void runVisualization(Hospital& hospital) {
     std::vector<Patient*> prevAssignedPatients(4, nullptr);
     std::vector<PatientAnimation> activeAnimations;
 
-    while (window.isOpen()) {
+    bool quitRequested = false;
+
+    while (window.isOpen() && !quitRequested) {
         while (const std::optional event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()) {
-                window.close();
+                quitRequested = true;
             }
             else if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
                 if (keyPressed->code == sf::Keyboard::Key::Escape || keyPressed->code == sf::Keyboard::Key::Q) {
-                    window.close(); // Pressing ESC or Q will now instantly close the window
+                    quitRequested = true; // ESC or Q returns to the console
                 }
                 else if (keyPressed->code == sf::Keyboard::Key::Space || keyPressed->code == sf::Keyboard::Key::T) {
                     if (!autoRun) hospital.tick(); // Prevent manual ticks while auto-run is active
@@ -68,6 +93,8 @@ void runVisualization(Hospital& hospital) {
             }
         }
 
+        if (quitRequested) break;
+
         if (autoRun) {
             sf::Time elapsed = clock.restart();
             elapsedTime += elapsed;
@@ -85,19 +112,19 @@ void runVisualization(Hospital& hospital) {
         titleText.setFillColor(sf::Color(30, 41, 59));
         titleText.setStyle(sf::Text::Bold);
         titleText.setString("Hospital Simulation Dashboard (Visual Mode)");
-        titleText.setPosition({40.f, 20.f});
+        titleText.setPosition({ 40.f, 20.f });
         window.draw(titleText);
 
         sf::Text subText(font);
         subText.setCharacterSize(13);
         subText.setFillColor(sf::Color(100, 116, 139));
         subText.setString("[SPACE] Step Hour  |  [R] Toggle Auto-Run  |  [Q / ESC] Return to Console");
-        subText.setPosition({40.f, 48.f});
+        subText.setPosition({ 40.f, 48.f });
         window.draw(subText);
 
         // --- CLOCK & ADVANCE BUTTON ---
         sf::RectangleShape btnBox(sf::Vector2f(210.f, 40.f));
-        btnBox.setPosition({950.f, 25.f});
+        btnBox.setPosition({ 950.f, 25.f });
         btnBox.setFillColor(sf::Color(37, 99, 235));
         window.draw(btnBox);
 
@@ -106,11 +133,11 @@ void runVisualization(Hospital& hospital) {
         btnText.setFillColor(sf::Color::White);
         btnText.setStyle(sf::Text::Bold);
         btnText.setString("Advance Hour (+1hr)");
-        btnText.setPosition({965.f, 36.f});
+        btnText.setPosition({ 965.f, 36.f });
         window.draw(btnText);
 
         sf::RectangleShape clockBox(sf::Vector2f(210.f, 40.f));
-        clockBox.setPosition({950.f, 75.f});
+        clockBox.setPosition({ 950.f, 75.f });
         clockBox.setFillColor(sf::Color::White);
         clockBox.setOutlineColor(sf::Color(203, 213, 225));
         clockBox.setOutlineThickness(1.f);
@@ -126,12 +153,12 @@ void runVisualization(Hospital& hospital) {
         int hrOfDay = currentHour % 24;
         int currentShift = Hospital::shiftAt(currentHour);
         clockText.setString("Day " + std::to_string(day) + " - " + (hrOfDay < 10 ? "0" : "") + std::to_string(hrOfDay) + ":00 (Shift " + std::to_string(currentShift) + ") " + (autoRun ? "[AUTO]" : ""));
-        clockText.setPosition({960.f, 86.f});
+        clockText.setPosition({ 960.f, 86.f });
         window.draw(clockText);
 
         // --- LEFT HALF: WAITING ROOM ---
         sf::RectangleShape waitingBox(sf::Vector2f(560.f, 640.f));
-        waitingBox.setPosition({40.f, 130.f});
+        waitingBox.setPosition({ 40.f, 130.f });
         waitingBox.setFillColor(sf::Color::White);
         waitingBox.setOutlineColor(sf::Color(203, 213, 225));
         waitingBox.setOutlineThickness(2.f);
@@ -142,7 +169,7 @@ void runVisualization(Hospital& hospital) {
         waitingHeader.setFillColor(sf::Color(15, 23, 42));
         waitingHeader.setStyle(sf::Text::Bold);
         waitingHeader.setString("Waiting Room");
-        waitingHeader.setPosition({60.f, 145.f});
+        waitingHeader.setPosition({ 60.f, 145.f });
         window.draw(waitingHeader);
 
         std::vector<Patient*> waitingPatients = hospital.getWaitingPatients();
@@ -156,7 +183,7 @@ void runVisualization(Hospital& hospital) {
             Patient* p = waitingPatients[i];
 
             sf::CircleShape node(20.f);
-            node.setPosition({startX + xOff, startY + yOff});
+            node.setPosition({ startX + xOff, startY + yOff });
             node.setFillColor(getPatientColor(p));
             node.setOutlineColor(sf::Color::Black);
             node.setOutlineThickness(1.f);
@@ -166,7 +193,7 @@ void runVisualization(Hospital& hospital) {
             lbl.setCharacterSize(10);
             lbl.setFillColor(sf::Color::Black);
             lbl.setString(p->getName() + "\nC:" + std::to_string(p->getCondition()));
-            lbl.setPosition({startX + xOff - 5.f, startY + yOff + 42.f});
+            lbl.setPosition({ startX + xOff - 5.f, startY + yOff + 42.f });
             window.draw(lbl);
 
             xOff += 90.f;
@@ -194,7 +221,7 @@ void runVisualization(Hospital& hospital) {
 
         for (int i = 0; i < 4; ++i) {
             sf::RectangleShape officeBox(sf::Vector2f(officeWidth, officeHeight));
-            officeBox.setPosition({officeX, officeY});
+            officeBox.setPosition({ officeX, officeY });
             officeBox.setFillColor(sf::Color::White);
             officeBox.setOutlineColor(sf::Color(203, 213, 225));
             officeBox.setOutlineThickness(2.f);
@@ -224,15 +251,15 @@ void runVisualization(Hospital& hospital) {
                 docTxt.setFillColor(sf::Color::Black);
                 std::string pName = isBusy ? currentPat->getName() : "None";
                 int pCond = isBusy ? currentPat->getCondition() : 0;
-                
-                docTxt.setString("Office " + std::to_string(i+1) + ": Dr. " + doc->getName() + 
-                                 "  (Skill: " + std::to_string(doc->getSkill()) + ", Shift: " + std::to_string(doc->getShift()) + ")\n" +
-                                 "Status: " + (isBusy ? "Busy with Patient -> " + pName + " (Cond: " + std::to_string(pCond) + ")" : "Available"));
-                docTxt.setPosition({officeX + 20.f, officeY + 20.f});
+
+                docTxt.setString("Office " + std::to_string(i + 1) + ": Dr. " + doc->getName() +
+                    "  (Skill: " + std::to_string(doc->getSkill()) + ", Shift: " + std::to_string(doc->getShift()) + ")\n" +
+                    "Status: " + (isBusy ? "Busy with Patient -> " + pName + " (Cond: " + std::to_string(pCond) + ")" : "Available"));
+                docTxt.setPosition({ officeX + 20.f, officeY + 20.f });
                 window.draw(docTxt);
 
                 sf::CircleShape docSprite(16.f);
-                docSprite.setPosition({officeX + 40.f, officeY + 90.f});
+                docSprite.setPosition({ officeX + 40.f, officeY + 90.f });
                 docSprite.setFillColor(sf::Color(16, 185, 129));
                 window.draw(docSprite);
 
@@ -240,7 +267,7 @@ void runVisualization(Hospital& hospital) {
                 dLbl.setCharacterSize(10);
                 dLbl.setFillColor(sf::Color::Black);
                 dLbl.setString("Dr." + doc->getName());
-                dLbl.setPosition({officeX + 25.f, officeY + 128.f});
+                dLbl.setPosition({ officeX + 25.f, officeY + 128.f });
                 window.draw(dLbl);
 
                 bool isCurrentlyAnimating = false;
@@ -254,7 +281,7 @@ void runVisualization(Hospital& hospital) {
 
                 if (isBusy && !isCurrentlyAnimating) {
                     sf::CircleShape patSprite(16.f);
-                    patSprite.setPosition({officeX + 110.f, officeY + 90.f});
+                    patSprite.setPosition({ officeX + 110.f, officeY + 90.f });
                     patSprite.setFillColor(getPatientColor(currentPat));
                     patSprite.setOutlineColor(sf::Color::Black);
                     patSprite.setOutlineThickness(1.f);
@@ -264,15 +291,16 @@ void runVisualization(Hospital& hospital) {
                     pLbl.setCharacterSize(10);
                     pLbl.setFillColor(sf::Color::Black);
                     pLbl.setString(pName + "\n(C:" + std::to_string(pCond) + ")");
-                    pLbl.setPosition({officeX + 95.f, officeY + 128.f});
+                    pLbl.setPosition({ officeX + 95.f, officeY + 128.f });
                     window.draw(pLbl);
                 }
-            } else {
+            }
+            else {
                 sf::Text emptyTxt(font);
                 emptyTxt.setCharacterSize(14);
                 emptyTxt.setFillColor(sf::Color(148, 163, 184));
-                emptyTxt.setString("Doctor Office " + std::to_string(i+1) + " (No Doctor on Shift)");
-                emptyTxt.setPosition({officeX + 20.f, officeY + 20.f});
+                emptyTxt.setString("Doctor Office " + std::to_string(i + 1) + " (No Doctor on Shift)");
+                emptyTxt.setPosition({ officeX + 20.f, officeY + 20.f });
                 window.draw(emptyTxt);
             }
 
@@ -311,17 +339,32 @@ void runVisualization(Hospital& hospital) {
             moveLbl.setCharacterSize(11);
             moveLbl.setFillColor(sf::Color::Black);
             moveLbl.setString(it->patientName);
-            moveLbl.setPosition({it->currentPos.x - 5.f, it->currentPos.y - 20.f});
+            moveLbl.setPosition({ it->currentPos.x - 5.f, it->currentPos.y - 20.f });
             window.draw(moveLbl);
 
             if (!it->active) {
                 // erase returns the next valid iterator after removing this animation.
                 it = activeAnimations.erase(it);
-            } else {
+            }
+            else {
                 ++it;
             }
         }
 
         window.display();
     }
+
+    // Shut the window down cleanly before going back to the console. Hiding it and
+    // letting the OS process a few more events makes the window actually disappear
+    // on macOS; closing it straight away can leave a frozen window on screen.
+    window.setVisible(false);
+    for (int i = 0; i < 10; ++i) {
+        while (window.pollEvent()) {}
+        sf::sleep(sf::milliseconds(10));
+    }
+    window.close();
+#ifdef __APPLE__
+    sendToSharedApp("hide:"); // give keyboard focus back to the terminal
+#endif
+    std::cout << "Visualization closed. Back to the console." << std::endl;
 }

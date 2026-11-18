@@ -4,10 +4,10 @@ CXXFLAGS = -std=c++17 -Wall
 ifeq ($(shell uname), Darwin)
     ifeq ($(shell test -d /opt/homebrew && echo yes), yes)
         CXXFLAGS += -I/opt/homebrew/include
-        LDFLAGS = -L/opt/homebrew/lib -lsfml-graphics -lsfml-window -lsfml-system
+        LDFLAGS = -L/opt/homebrew/lib -lsfml-graphics -lsfml-window -lsfml-system -lobjc
     else
         CXXFLAGS += -I/usr/local/include
-        LDFLAGS = -L/usr/local/lib -lsfml-graphics -lsfml-window -lsfml-system
+        LDFLAGS = -L/usr/local/lib -lsfml-graphics -lsfml-window -lsfml-system -lobjc
     endif
 else
     CXXFLAGS += -I/usr/include
