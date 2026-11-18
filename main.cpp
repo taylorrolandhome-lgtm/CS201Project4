@@ -2,7 +2,7 @@
 #include <sstream>
 #include <string>
 #include "visual.h"
-#include "waitingRoomP4.h"
+#include "waitingRoom.h"
 #include "patientSearchHistory.h"
 
 static void printHelp() {
